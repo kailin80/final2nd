@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TermDefiner - 名詞定義記憶 App</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --success: #22c55e;
+            --error: #ef4444;
+            --border: #e2e8f0;
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 整體排版設定 */
+        .app-layout {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+        }
+
+        /* 左側：題目一覽表 (Sidebar) */
+        .sidebar {
+            width: 300px;
+            background: var(--card-bg);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.02);
+            z-index: 10;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            text-align: center;
+            background: #f1f5f9;
+        }
+
+        .sidebar-header h2 {
+            font-size: 1.2rem;
+            color: var(--text-main);
+            margin-bottom: 8px;
+        }
+
+        .progress-text {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .sidebar-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 0;
+        }
+
+        .sidebar-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #f1f5f9;
+            transition: background 0.2s;
+        }
+
+        .sidebar-item:hover {
+            background: #f8fafc;
+        }
+
+        .sidebar-item.active {
+            background: #e0e7ff;
+            border-left: 4px solid var(--primary);
+            padding-left: 12px;
+        }
+
+        .sidebar-item-title {
+            font-weight: 500;
+            font-size: 0.95rem;
+            flex-shrink: 0;
+            margin-right: 10px;
+        }
+
+        /* 側邊欄答案顯示 */
+        .sidebar-answer {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: right;
+            flex: 1;
+        }
+
+        .sidebar-answer.has-answer {
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .sidebar-footer {
+            padding: 20px;
+            border-top: 1px solid var(--border);
+            background: var(--card-bg);
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 14px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .submit-btn:disabled {
+            background: #cbd5e1;
+            cursor: not-allowed;
+        }
+
+        .submit-btn:hover:not(:disabled) {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        /* 右側：主要作答區 */
+        .main-area {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            position: relative;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: var(--card-bg);
+            padding: 40px;
+            border-radius: 24px;
+            box-shadow: var(--shadow);
+            position: relative;
+        }
+
+        /* 題目區與按鈕 */
+        .question-section {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 40px;
+            min-height: 150px;
+        }
+
+        .nav-btn {
+            background: none;
+            border: 2px solid var(--border);
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.2s;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .nav-btn:hover:not(:disabled) {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .definition-box {
+            flex: 1;
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        #definition-text {
+            font-size: 1.25rem;
+            line-height: 1.6;
+            font-weight: 500;
+        }
+
+        /* 作答區 */
+        .answer-section {
+            position: relative;
+            padding-bottom: 260px; /* 預留下拉選單空間 */
+        }
+
+        .label {
+            display: block;
+            margin-bottom: 10px;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        /* 自定義可搜尋下拉選單 */
+        .searchable-dropdown {
+            position: relative;
+            width: 100%;
+        }
+
+        .dropdown-input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .dropdown-input:focus {
+            border-color: var(--primary);
+        }
+
+        .dropdown-list {
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            max-height: 240px;
+            overflow-y: auto;
+            z-index: 10;
+            box-shadow: var(--shadow);
+            display: none;
+        }
+
+        .dropdown-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .dropdown-item:hover {
+            background: #f1f5f9;
+        }
+
+        /* 已選擇答案區塊 */
+        .selected-block {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #ffffff;
+            border: 2px solid var(--primary);
+            padding: 14px 16px;
+            border-radius: 12px;
+        }
+
+        .selected-term {
+            font-weight: 600;
+            color: var(--text-main);
+            font-size: 1.1rem;
+        }
+
+        .change-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            text-decoration: underline;
+            transition: color 0.2s;
+        }
+
+        .change-btn:hover {
+            color: var(--primary);
+        }
+
+        /* 結果頁面 */
+        #result-view {
+            display: none;
+            text-align: center;
+            padding-bottom: 20px;
+        }
+
+        .result-title {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
+
+        .score-text {
+            font-size: 1.25rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: var(--text-main);
+        }
+
+        .wrong-list {
+            text-align: left;
+            margin: 20px 0;
+            max-height: 350px;
+            overflow-y: auto;
+            padding: 15px;
+            background: #fef2f2;
+            border: 1px solid #fca5a5;
+            border-radius: 12px;
+        }
+
+        .wrong-item {
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #fca5a5;
+        }
+
+        .wrong-item:last-child { border: none; margin-bottom: 0; padding-bottom: 0; }
+
+        .correct-answer-label {
+            display: inline-block;
+            margin-top: 5px;
+            color: var(--error);
+            font-weight: bold;
+        }
+
+        .restart-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .restart-btn:hover { background: var(--primary-hover); }
+
+        .status-icon {
+            font-size: 4rem;
+            margin-bottom: 10px;
+        }
+
+        /* 響應式設計：手機版轉換為上下佈局 */
+        @media (max-width: 768px) {
+            .app-layout {
+                flex-direction: column;
+            }
+            .sidebar {
+                width: 100%;
+                height: 250px;
+                flex-shrink: 0;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+            .sidebar-footer {
+                padding: 10px;
+            }
+            .main-area {
+                padding: 10px;
+            }
+            .container {
+                padding: 20px;
+            }
+            .answer-section {
+                padding-bottom: 180px; /* 手機版預留空間調小 */
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-layout">
+    <!-- 左側 Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h2>題目總覽</h2>
+            <div class="progress-text">已作答: <span id="answered-count">0</span> / 100</div>
+        </div>
+        <div class="sidebar-list" id="sidebar-list">
+            <!-- 題目列表由 JS 動態生成 -->
+        </div>
+        <div class="sidebar-footer">
+            <button class="submit-btn" id="submit-btn" onclick="submitQuiz()" disabled>
+                尚未完成 (0/100)
+            </button>
+        </div>
+    </aside>
+
+    <!-- 右側主要區塊 -->
+    <main class="main-area">
+        <div class="container" id="app-container">
+            <!-- 測驗介面 -->
+            <div id="quiz-view">
+                <header style="text-align: center; margin-bottom: 20px;">
+                    <h3 style="color: var(--primary);">第 <span id="current-num">1</span> 題</h3>
+                </header>
+
+                <section class="question-section">
+                    <button class="nav-btn" id="prev-btn" title="上一題">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                    </button>
+                    
+                    <div class="definition-box">
+                        <p id="definition-text">載入中...</p>
+                    </div>
+
+                    <button class="nav-btn" id="next-btn" title="下一題">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    </button>
+                </section>
+
+                <section class="answer-section">
+                    <label class="label">請為此定義配對正確的名詞：</label>
+                    
+                    <!-- 尚未作答時顯示搜尋下拉選單 -->
+                    <div class="searchable-dropdown" id="search-container">
+                        <input type="text" class="dropdown-input" id="search-input" placeholder="輸入關鍵字搜尋名詞..." autocomplete="off">
+                        <div class="dropdown-list" id="dropdown-list"></div>
+                    </div>
+
+                    <!-- 已作答時顯示此區塊 -->
+                    <div class="selected-block" id="selected-container" style="display: none;">
+                        <span class="selected-term" id="selected-term-text"></span>
+                        <button class="change-btn" onclick="clearSelection()">修改答案</button>
+                    </div>
+                </section>
+            </div>
+
+            <!-- 完成結果介面 -->
+            <div id="result-view">
+                <div class="status-icon" id="result-icon">🎉</div>
+                <h2 class="result-title">測驗完成！</h2>
+                <div class="score-text">你的分數：<span id="score-text">100</span> / 100</div>
+                
+                <div id="wrong-container" style="display: none;">
+                    <h3 style="margin-top: 20px; text-align: left; color: var(--error);">答錯的題目（需複習）：</h3>
+                    <div class="wrong-list" id="wrong-list"></div>
+                </div>
+
+                <button class="restart-btn" onclick="initQuiz()" style="margin-top: 20px;">重新開始練習</button>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+    /**
+     * 資料格式定義 (100 題完整資料)
+     */
+    const rawData = [
+{ "term": "Large Language Models", "definition": "These systems are trained on large-scale text data to understand and generate human language. They are widely used in chatbots, content creation, and automated communication applications." },
+{ "term": "E-commerce", "definition": "This refers to conducting business transactions through the internet, allowing organizations to sell products and services online. It supports digital payments, logistics, and customer data integration." },
+{ "term": "Enterprise Resource Planning (ERP)", "definition": "This system integrates core business processes such as finance, operations, and human resources into a single platform. It improves coordination, efficiency, and real-time data sharing across departments." },
+{ "term": "Online Banking", "definition": "This service enables customers to perform financial transactions through internet-based platforms. It provides convenient access to banking services such as transfers, payments, and account management." },
+{ "term": "Metaverse", "definition": "This digital environment allows users to interact through avatars in immersive virtual spaces. It combines technologies such as VR and AR for social, entertainment, and business activities." },
+{ "term": "Industry 4.0", "definition": "This concept represents the integration of digital technologies into manufacturing processes. It enables automation, real-time monitoring, and intelligent decision-making to improve production efficiency." },
+{ "term": "Digital Transformation", "definition": "This process involves adopting digital technologies to improve business operations and create value. It requires changes in workflows, strategies, and customer interaction methods." },
+{ "term": "Information Flow", "definition": "Information is transmitted between departments and systems following defined paths. This ensures timely delivery and supports coordination of tasks within organizational processes." },
+{ "term": "Robotic Process Automation (RPA)", "definition": "This technology uses software robots to automate repetitive and rule-based tasks. It improves efficiency, reduces errors, and allows employees to focus on higher-value activities." },
+{ "term": "O2O (Online to Offline)", "definition": "This strategy connects online platforms with offline services to enhance customer experience. It allows users to interact digitally and complete transactions in physical locations." },
+{ "term": "Supply Chain Management", "definition": "This involves managing the flow of goods, information, and resources from suppliers to customers. It improves efficiency, reduces costs, and ensures timely delivery." },
+{ "term": "Blockchain", "definition": "This is a decentralized system that records transactions securely across multiple nodes. It ensures transparency, data integrity, and reduces the risk of fraud." },
+{ "term": "Transaction Data", "definition": "Records generated from business transactions such as sales or payments are stored in systems. These records support reporting, auditing, and daily operational processing." },
+{ "term": "Smart Traffic", "definition": "This system uses digital technologies and data to manage transportation networks. It reduces congestion, improves safety, and enhances traffic efficiency." },
+{ "term": "Customer Relationship Management (CRM)", "definition": "This approach manages customer interactions and data throughout the lifecycle. It helps improve relationships, increase satisfaction, and support business growth." },
+{ "term": "FinTech", "definition": "This combines technology with financial services to improve efficiency and innovation. It includes applications such as mobile payments and digital banking solutions." },
+{ "term": "Smart Healthcare", "definition": "This approach uses digital technologies to improve healthcare services and patient care. It enables remote monitoring, data analysis, and efficient medical management." },
+{ "term": "Vibe Coding", "definition": "Programming is guided by intuition, rapid iteration, and interactive tools instead of strict planning. Developers adjust code continuously based on feedback, focusing on user experience and flexible problem-solving approaches." },
+{ "term": "Internet of Things (IoT)", "definition": "This network connects devices that collect and exchange data through the internet. It enables automation and real-time monitoring in many applications." },
+{ "term": "Sharing Economy", "definition": "This model allows individuals to share access to goods and services through digital platforms. It improves resource utilization and reduces the need for ownership." },
+{ "term": "New Retail", "definition": "This approach integrates online and offline retail channels using digital technologies. It enhances customer experience, improves inventory management, and supports data-driven business decisions." },
+{ "term": "Database", "definition": "This refers to an organized collection of data that can be stored, accessed, and managed efficiently. It supports business operations by providing structured and reliable information." },
+{ "term": "AI Agent", "definition": "An entity perceives inputs from its environment, selects actions based on defined objectives, and executes them automatically. Behavior changes according to feedback, allowing goal-directed operation without constant human instruction." },
+{ "term": "Generative AI", "definition": "This type of artificial intelligence can create new content such as text, images, or music. It is widely used in design, communication, and digital content production." },
+{ "term": "NotebookLM", "definition": "This tool uses artificial intelligence to organize and analyze information. It helps users summarize content, manage knowledge, and improve productivity in digital environments." },
+{ "term": "MS Access", "definition": "This is a database management tool used to store and analyze structured data. It supports small-scale applications and helps users organize and retrieve information efficiently." },
+{ "term": "Figma", "definition": "This platform allows users to design interfaces and collaborate in real time. It improves efficiency in digital design and supports teamwork in product development." },
+{ "term": "Suno", "definition": "This AI-based tool generates music automatically based on user input. It simplifies creative processes and demonstrates how AI can be applied in content creation." },
+{ "term": "Smart Home", "definition": "This system connects devices within a home to automate functions such as lighting and security. It improves convenience, efficiency, and energy management." },
+{ "term": "Fraud Detection", "definition": "Techniques are used to identify suspicious financial activities by analyzing transaction data. This helps reduce risks, prevent fraud, and improve security in financial systems." },
+{ "term": "Business Intelligence (BI)", "definition": "Data collected from different sources is analyzed and presented in reports or dashboards. This helps managers monitor performance and support decision-making." },
+{ "term": "GPU Computing", "definition": "This uses graphics processing units to perform complex calculations efficiently. It is commonly applied in data processing, artificial intelligence, and large-scale computations." },
+{ "term": "Sports Analytics", "definition": "Data collected from sports activities is analyzed to evaluate performance and support decision-making. This approach helps organizations improve strategies using structured and measurable information." },
+{ "term": "Prompt Engineering", "definition": "Inputs are carefully designed to guide artificial intelligence systems toward desired outputs. Specific wording, structure, and context influence how models interpret tasks and generate responses." },
+{ "term": "Multimodal AI", "definition": "Different data types such as text, images, and audio are processed within a unified model. Relationships across these inputs are learned to enable cross-format understanding and response generation." },
+{ "term": "Digital Payment Systems", "definition": "Financial transactions are processed electronically through systems without physical cash. This improves transaction speed, security, and supports online and mobile payments." },
+{ "term": "Logistics Information Systems", "definition": "These systems manage and track the movement of goods and information. They improve coordination, efficiency, and visibility in logistics operations." },
+{ "term": "Machine Learning", "definition": "This enables systems to learn from data and improve performance automatically. It is widely used in prediction, classification, and decision-making processes." },
+{ "term": "Low-code / No-code Platforms", "definition": "These tools allow users to build applications with minimal programming knowledge. They improve development speed and enable broader participation in system creation." },
+{ "term": "Virtual Reality (VR)", "definition": "This creates immersive digital environments that users can interact with. It is used in training, simulation, and entertainment applications." },
+{ "term": "Augmented Reality (AR)", "definition": "This overlays digital information onto real-world environments. It enhances user interaction and is used in retail, education, and navigation." },
+{ "term": "Information System", "definition": "This collects, processes, and distributes data to support decision-making. It plays a critical role in managing business operations and information flow." },
+{ "term": "Data Warehouse", "definition": "This stores large amounts of structured data from different sources. It supports analysis, reporting, and business intelligence activities." },
+{ "term": "Data Mining", "definition": "Large datasets are examined using algorithms to discover hidden patterns, relationships, or rules. This process involves classification, clustering, and association to extract structured knowledge from raw data." },
+{ "term": "Data Analytics", "definition": "Collected data is processed, cleaned, and analyzed using statistical or computational methods. This process focuses on interpreting data, summarizing results, and transforming it into meaningful information." },
+{ "term": "Data Visualization", "definition": "This presents data in graphical formats such as charts and dashboards. It helps users understand complex information more clearly." },
+{ "term": "Data Quality", "definition": "This refers to the accuracy, completeness, and reliability of data. High-quality data is essential for effective decision-making." },
+{ "term": "Data Security", "definition": "This protects data from unauthorized access and potential threats. It ensures confidentiality, integrity, and availability of information." },
+{ "term": "Autonomous Agent", "definition": "Tasks are executed independently by systems that evaluate conditions and choose actions without direct commands. Internal rules and environmental signals determine behavior across different situations." },
+{ "term": "Gig Economy", "definition": "Work is divided into short-term, task-based engagements coordinated through digital platforms. Individuals provide services on demand, often without fixed contracts or long-term organizational attachment." },
+{ "term": "Cloud Computing", "definition": "Computing resources such as storage and processing power are delivered over the internet. This approach provides flexibility, scalability, and cost efficiency for organizations managing digital operations." },
+{ "term": "Software as a Service (SaaS)", "definition": "Applications are delivered through the internet on a subscription basis without local installation. This model reduces maintenance costs and allows users to access services anytime and anywhere." },
+{ "term": "Cloud Backup", "definition": "Copies of data are automatically stored on remote servers to prevent data loss. This process ensures recovery in case of system failure, damage, or unexpected incidents." },
+{ "term": "Infrastructure as a Service (IaaS)", "definition": "Virtual computing resources such as servers and storage are provided over the internet. Organizations can scale resources easily without investing in physical infrastructure." },
+{ "term": "System Deployment", "definition": "A completed system is installed and made available for actual use in an operational environment. This step ensures that users can begin using system functions in real situations." },
+{ "term": "API （ Application Programming Interface ）", "definition": "Communication between different software systems is enabled through defined interfaces. This allows applications to exchange data and supports integration across various digital platforms." },
+{ "term": "Workflow", "definition": "Business tasks are organized into a sequence to complete processes efficiently." },
+{ "term": "Inventory Management", "definition": "Stock levels are monitored and controlled to meet customer demand efficiently. Proper management reduces costs, avoids shortages, and supports supply chain operations." },
+{ "term": "Order Management", "definition": "Customer orders are processed from placement to delivery in a structured way. Efficient handling ensures accuracy, improves customer satisfaction, and supports business operations." },
+{ "term": "Customer Service", "definition": "Support is provided to customers before and after purchasing products or services. High-quality service improves satisfaction, builds relationships, and enhances business reputation." },
+{ "term": "Cybersecurity", "definition": "Protection of systems and data from digital threats is essential for organizations. Security measures help prevent unauthorized access, data breaches, and operational disruptions." },
+{ "term": "Access Control", "definition": "System access is restricted based on user authorization levels. This ensures that only permitted individuals can view or modify sensitive information." },
+{ "term": "Encryption", "definition": "Information is converted into secure formats to prevent unauthorized access. This technique protects data during storage and transmission across networks." },
+{ "term": "Digital Twin", "definition": "A virtual representation mirrors a physical object or system using real-time data. Changes in the physical environment are reflected digitally for monitoring and simulation." },
+{ "term": "Information Audit", "definition": "Evaluation of information systems ensures proper management and security of data. It helps organizations identify weaknesses and maintain compliance with standards." },
+{ "term": "Data Privacy", "definition": "Personal information must be protected from misuse or unauthorized access. Ensuring privacy supports ethical practices and builds trust with users." },
+{ "term": "Chain-of-Thought (CoT)", "definition": "Intermediate reasoning steps are generated to explain how conclusions are reached. This approach breaks down complex problems into sequential logic for clearer understanding." },
+{ "term": "Online Service", "definition": "Services are delivered through internet platforms to provide users with convenient access. This improves efficiency and expands service availability." },
+{ "term": "Mobile Payment", "definition": "Transactions are completed using mobile devices instead of physical cash. This method increases convenience, speed, and accessibility for users." },
+{ "term": "Digital Identity", "definition": "Representation of users in digital systems enables authentication and access control. It ensures secure identification and supports online interactions and services." },
+{ "term": "Smart Factory", "definition": "Digital technologies and automation are applied to manufacturing processes to improve efficiency. Real-time monitoring and data analysis enable better control, flexibility, and productivity in industrial operations." },
+{ "term": "Smart Agriculture", "definition": "Advanced technologies and data analytics are used to improve farming activities and resource management. This approach enhances productivity, supports monitoring, and enables more efficient agricultural decision-making." },
+{ "term": "Telemedicine", "definition": "Medical services can be delivered remotely through digital communication technologies. Patients are able to consult healthcare providers online, improving accessibility and efficiency in healthcare delivery." },
+{ "term": "User Interface", "definition": "Interaction between users and systems is designed through visual elements and controls. A well-designed interface improves usability, accessibility, and the overall effectiveness of system interaction.8" },
+{ "term": "User Experience", "definition": "Overall perception and satisfaction are influenced by how users interact with systems. Good design improves usability, efficiency, and engagement, leading to better outcomes and user satisfaction." },
+{ "term": "Digital Communication", "definition": "Information is exchanged through digital platforms such as messaging, email, and social media. This form of communication improves speed, accessibility, and connectivity across different locations." },
+{ "term": "Data Authorization", "definition": "Access to data is controlled by assigning permissions to specific users or roles. This ensures that only authorized individuals can view or modify sensitive information." },
+{ "term": "Business Application", "definition": "Software tools are used to support business operations such as accounting and customer management. These applications improve efficiency, accuracy, and productivity in organizations." },
+{ "term": "User Behavior", "definition": "Actions performed by users when interacting with systems are analyzed. Understanding behavior helps improve system design and user experience." },
+{ "term": "Decision Support", "definition": "Data and analytical tools are used within systems to assist managers in evaluating options. This supports structured decision-making and improves business outcomes." },
+{ "term": "Process Automation", "definition": "Repetitive tasks are performed automatically using digital tools and systems. Automation reduces human errors, improves efficiency, and allows employees to focus on higher-value activities." },
+{ "term": "Digital Workflow", "definition": "Business processes are organized and executed through digital systems. This improves coordination, consistency, and efficiency in completing organizational tasks." },
+{ "term": "Information Management", "definition": "Data is collected, stored, and used effectively to support operations and decision-making. Proper management ensures accuracy, accessibility, and value of information." },
+{ "term": "Data Integration", "definition": "Information from different sources is combined into a unified system for better analysis. This improves data consistency, accessibility, and overall usability." },
+{ "term": "System Maintenance", "definition": "Ongoing updates and management ensure systems operate efficiently and reliably. Regular maintenance improves performance and prevents system failures." },
+{ "term": "Network Management", "definition": "Communication networks are monitored and controlled to ensure stable connections. Effective management improves performance, security, and data transmission reliability." },
+{ "term": "IT Infrastructure", "definition": "Hardware, software, and network components provide the foundation for digital systems. A strong infrastructure supports operations, scalability, and system performance." },
+{ "term": "Digital Platform", "definition": "Online environments connect users, services, and applications to enable interaction. These platforms support communication, transactions, and digital business activities." },
+{ "term": "Service Integration", "definition": "Different services and functions are combined into a single system to provide a unified experience. This improves efficiency and simplifies user interaction across multiple processes." },
+{ "term": "Recommendation System", "definition": "User data is analyzed to suggest relevant products or content. Personalized recommendations improve engagement, satisfaction, and digital service effectiveness." },
+{ "term": "Chatbot", "definition": "Automated systems simulate human conversation to provide instant responses. They are widely used in customer service to improve efficiency and reduce workload." },
+{ "term": "Computer Vision", "definition": "Visual data such as images and videos are interpreted by machines. This technology supports recognition, monitoring, and automation in various applications." },
+{ "term": "Natural Language Processing", "definition": "Human language is processed and understood by computer systems. This enables applications such as translation, chat systems, and voice assistants." },
+{ "term": "OpenClaw", "definition": "An open-source framework enables construction of agent-based workflows by combining multiple tools and models. Tasks can be chained together to perform structured, multi-step operations automatically." },
+{ "term": "Smart City", "definition": "Urban services are improved through digital technologies and data integration. This enhances efficiency, sustainability, and quality of life in cities." },
+{ "term": "Data Sharing", "definition": "Information is exchanged between systems or users to support collaboration. It improves efficiency and coordination within organizations." },
+{ "term": "Digital Innovation", "definition": "Existing systems are improved by applying new digital technologies to enhance functions. This leads to better processes and increased operational efficiency." },
+{ "term": "IT Management", "definition": "Planning and controlling information technology resources ensures alignment with business goals. Effective management improves system performance and organizational efficiency." },
+{ "term": "Information Filtering", "definition": "Relevant information is selected from large amounts of data based on specific criteria. This helps users focus on useful content and improves efficiency in information usage." },
+{ "term": "Digital First Strategy", "definition": "Business processes are designed to operate primarily through digital channels rather than physical ones. Systems, services, and interactions are structured to function in online environments from the start." }
+    ];
+
+    // 應用程式狀態
+    let quizData = [];           // 亂序後的原始資料
+    let currentIndex = 0;        // 當前題目索引
+    let userAnswers = {};        // 記錄使用者的作答 { 題目索引: 選擇的名詞 }
+
+    // DOM 元素
+    const definitionText = document.getElementById('definition-text');
+    const currentNumSpan = document.getElementById('current-num');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    
+    const searchContainer = document.getElementById('search-container');
+    const searchInput = document.getElementById('search-input');
+    const dropdownList = document.getElementById('dropdown-list');
+    
+    const selectedContainer = document.getElementById('selected-container');
+    const selectedTermText = document.getElementById('selected-term-text');
+    
+    const sidebarList = document.getElementById('sidebar-list');
+    const answeredCountSpan = document.getElementById('answered-count');
+    const submitBtn = document.getElementById('submit-btn');
+    
+    const quizView = document.getElementById('quiz-view');
+    const resultView = document.getElementById('result-view');
+
+    /**
+     * 初始化測驗
+     */
+    function initQuiz() {
+        quizData = [...rawData].sort(() => Math.random() - 0.5);
+        currentIndex = 0;
+        userAnswers = {};
+        
+        quizView.style.display = 'block';
+        resultView.style.display = 'none';
+        
+        buildSidebar();
+        renderQuestion();
+    }
+
+    /**
+     * 建立左側 Sidebar 的題目列表
+     */
+    function buildSidebar() {
+        sidebarList.innerHTML = "";
+        quizData.forEach((_, index) => {
+            const item = document.createElement('div');
+            item.className = 'sidebar-item';
+            item.id = `sidebar-item-${index}`;
+            item.onclick = () => gotoQuestion(index);
+            
+            // 替換原本的 status-dot 為顯示答案的 span
+            item.innerHTML = `
+                <span class="sidebar-item-title">題目 ${index + 1}</span>
+                <span class="sidebar-answer" id="sidebar-answer-${index}">未作答</span>
+            `;
+            sidebarList.appendChild(item);
+        });
+        updateSidebarStatus();
+    }
+
+    /**
+     * 跳轉到指定題目
+     */
+    function gotoQuestion(index) {
+        currentIndex = index;
+        renderQuestion();
+    }
+
+    /**
+     * 更新 Sidebar 視覺狀態 (包含 Active 標示與答案文字)
+     */
+    function updateSidebarStatus() {
+        const answeredCount = Object.keys(userAnswers).length;
+        answeredCountSpan.textContent = answeredCount;
+        
+        // 更新按鈕狀態
+        if (answeredCount === quizData.length) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = "完成測驗，看結果";
+        } else {
+            submitBtn.disabled = true;
+            submitBtn.textContent = `尚未完成 (${answeredCount}/${quizData.length})`;
+        }
+
+        // 更新列表項目
+        quizData.forEach((_, index) => {
+            const item = document.getElementById(`sidebar-item-${index}`);
+            const answerSpan = document.getElementById(`sidebar-answer-${index}`);
+            
+            // 處理 Focus 狀態
+            if (index === currentIndex) {
+                item.classList.add('active');
+                // 若手機版或列表過長，確保滾動到可見範圍
+                item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            } else {
+                item.classList.remove('active');
+            }
+
+            // 處理作答狀態
+            if (userAnswers[index]) {
+                answerSpan.textContent = userAnswers[index];
+                answerSpan.title = userAnswers[index]; // 增加 tooltip 讓過長的字可以懸浮顯示
+                answerSpan.classList.add('has-answer');
+            } else {
+                answerSpan.textContent = "未作答";
+                answerSpan.title = "";
+                answerSpan.classList.remove('has-answer');
+            }
+        });
+    }
+
+    /**
+     * 渲染當前題目
+     */
+    function renderQuestion() {
+        const currentItem = quizData[currentIndex];
+        definitionText.textContent = currentItem.definition;
+        currentNumSpan.textContent = currentIndex + 1;
+        
+        // 按鈕狀態
+        prevBtn.disabled = currentIndex === 0;
+        nextBtn.disabled = currentIndex === quizData.length - 1;
+
+        // 判斷該題是否已經作答過
+        if (userAnswers[currentIndex]) {
+            // 已作答：顯示「已選擇區塊」，隱藏「搜尋列」
+            searchContainer.style.display = 'none';
+            selectedContainer.style.display = 'flex';
+            selectedTermText.textContent = userAnswers[currentIndex];
+        } else {
+            // 未作答：顯示「搜尋列」，並重新渲染下拉清單
+            searchContainer.style.display = 'block';
+            selectedContainer.style.display = 'none';
+            searchInput.value = "";
+            renderDropdown();
+        }
+
+        updateSidebarStatus();
+    }
+
+    /**
+     * 渲染下拉選單內容（過濾掉已經被選擇在其他題目的名詞）
+     */
+    function renderDropdown(filter = "") {
+        dropdownList.innerHTML = "";
+        
+        // 取得所有已經被使用的名詞陣列
+        const usedTerms = Object.values(userAnswers);
+
+        // 找出還沒被使用的名詞，並進行搜尋過濾與排序
+        const availableTerms = rawData
+            .map(item => item.term)
+            .filter(term => !usedTerms.includes(term))
+            .filter(term => term.toLowerCase().includes(filter.toLowerCase()))
+            .sort((a, b) => a.localeCompare(b));
+
+        if (availableTerms.length === 0) {
+            dropdownList.innerHTML = '<div class="dropdown-item" style="color:#999; cursor:default;">無匹配項目</div>';
+            return;
+        }
+
+        availableTerms.forEach(term => {
+            const div = document.createElement('div');
+            div.className = 'dropdown-item';
+            div.textContent = term;
+            div.onclick = () => handleSelection(term);
+            dropdownList.appendChild(div);
+        });
+    }
+
+    /**
+     * 處理選擇名詞
+     */
+    function handleSelection(selectedTerm) {
+        userAnswers[currentIndex] = selectedTerm; // 記錄使用者的答案
+        dropdownList.style.display = 'none';
+        
+        // 自動跳轉到下一題未作答的題目 (提升 UX)
+        let nextUnanswered = -1;
+        for (let i = currentIndex + 1; i < quizData.length; i++) {
+            if (!userAnswers[i]) {
+                nextUnanswered = i;
+                break;
+            }
+        }
+        
+        // 如果後面沒找到未作答的，從頭找
+        if (nextUnanswered === -1) {
+            for (let i = 0; i < currentIndex; i++) {
+                if (!userAnswers[i]) {
+                    nextUnanswered = i;
+                    break;
+                }
+            }
+        }
+
+        if (nextUnanswered !== -1) {
+            currentIndex = nextUnanswered;
+        }
+
+        renderQuestion();
+    }
+
+    /**
+     * 清除當前題目的選擇（修改答案）
+     */
+    function clearSelection() {
+        delete userAnswers[currentIndex];
+        renderQuestion();
+        setTimeout(() => searchInput.focus(), 100);
+    }
+
+    /**
+     * 結算交卷
+     */
+    function submitQuiz() {
+        let score = 0;
+        const wrongItems = [];
+
+        // 檢查對錯
+        quizData.forEach((question, index) => {
+            const userAnswer = userAnswers[index];
+            if (userAnswer === question.term) {
+                score++;
+            } else {
+                wrongItems.push({
+                    definition: question.definition,
+                    userAnswer: userAnswer,
+                    correctAnswer: question.term
+                });
+            }
+        });
+
+        // 顯示結果
+        quizView.style.display = 'none';
+        resultView.style.display = 'block';
+        
+        document.getElementById('score-text').textContent = score;
+        const resultIcon = document.getElementById('result-icon');
+        
+        if (score === quizData.length) {
+            resultIcon.textContent = "🏆";
+            document.getElementById('wrong-container').style.display = 'none';
+        } else {
+            resultIcon.textContent = "📝";
+            document.getElementById('wrong-container').style.display = 'block';
+            const wrongListDiv = document.getElementById('wrong-list');
+            wrongListDiv.innerHTML = "";
+            
+            wrongItems.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'wrong-item';
+                div.innerHTML = `
+                    <div style="font-size: 0.9rem; margin-bottom: 5px;">${item.definition}</div>
+                    <div style="color: var(--text-muted); font-size: 0.9rem;">
+                        <span style="text-decoration: line-through;">你的答案：${item.userAnswer}</span>
+                    </div>
+                    <div class="correct-answer-label">
+                        正確答案：${item.correctAnswer}
+                    </div>
+                `;
+                wrongListDiv.appendChild(div);
+            });
+        }
+    }
+
+    // 按鈕事件監聽
+    prevBtn.onclick = () => {
+        if (currentIndex > 0) {
+            currentIndex--;
+            renderQuestion();
+        }
+    };
+
+    nextBtn.onclick = () => {
+        if (currentIndex < quizData.length - 1) {
+            currentIndex++;
+            renderQuestion();
+        }
+    };
+
+    // 搜尋輸入邏輯
+    searchInput.onfocus = () => {
+        dropdownList.style.display = 'block';
+    };
+
+    searchInput.oninput = (e) => {
+        renderDropdown(e.target.value);
+    };
+
+    // 點擊外面關閉選單
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.searchable-dropdown')) {
+            dropdownList.style.display = 'none';
+        }
+    });
+
+    // 初始化啟動
+    window.onload = initQuiz;
+
+</script>
+
+</body>
+</html>
